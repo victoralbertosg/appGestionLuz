@@ -1,0 +1,30 @@
+{
+    "edificio": {
+        "nombre": "Residencial Las Palmas",
+        "direccion": "Av. Principal 123",
+        "moneda": "USD",
+        "simbolo": "$"
+    },
+    "departamentos": [
+        {
+            "id": 1,
+            "nombre": "Dpto 101"
+        },
+        {
+            "id": 2,
+            "nombre": "Dpto 102"
+        },
+        {
+            "id": 3,
+            "nombre": "Dpto 103"
+        },
+        {
+            "id": 4,
+            "nombre": "Dpto 104"
+        },
+        {
+            "id": 5,
+            "nombre": "Dpto 105"
+        }
+    ]
+}
