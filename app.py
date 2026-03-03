@@ -117,13 +117,16 @@ try:
     data_lecturas = hoja_lecturas.get_all_values()
     ultima_fila = data_lecturas[-1]
     mes_anterior_nombre = ultima_fila[0]
-    lecturas_pasadas = [float(x) for x in ultima_fila[1:]]
+    num_deptos = len(config['departamentos'])
+    lecturas_pasadas = [float(x) for x in ultima_fila[1:num_deptos+1]]
+
     
     # Calcular consumos del mes pasado para referencia
     consumos_pasados = [0.0] * len(config['departamentos'])
     if len(data_lecturas) >= 2:
         penultima_fila = data_lecturas[-2]
-        lecturas_anteriores_a_la_pasada = [float(x) for x in penultima_fila[1:]]
+        lecturas_anteriores_a_la_pasada = [float(x) for x in penultima_fila[1:num_deptos+1]]
+
         # Diferencias brutas del mes pasado
         diffs_pasadas = [max(0.0, lp - la) for lp, la in zip(lecturas_pasadas, lecturas_anteriores_a_la_pasada)]
         
@@ -135,8 +138,8 @@ try:
             elif i == 1: cp = max(0.0, d - cp_temp[0])
             elif i == 2: cp = max(0.0, d - (cp_temp[0] + cp_temp[1]))
             elif i == 3: cp = d
-            elif i == 4: cp = max(0.0, d - sum(cp_temp[:4]))
             else: cp = d
+
             cp_temp.append(cp)
         consumos_pasados = cp_temp
 
@@ -180,9 +183,8 @@ try:
                 consumo_v = max(0.0, diff - (consumos_calculados[0] + consumos_calculados[1]))
             elif i == 3: # Dpto 104: Continua igual
                 consumo_v = diff
-            elif i == 4: # Dpto 105: Diferencia - (101+102+103+104)
-                consumo_v = max(0.0, diff - (consumos_calculados[0] + consumos_calculados[1] + consumos_calculados[2] + consumos_calculados[3]))
             else:
+
                 consumo_v = diff
             
             consumos_calculados.append(consumo_v)
