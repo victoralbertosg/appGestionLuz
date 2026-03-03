@@ -116,8 +116,29 @@ try:
     # Obtener lecturas del mes anterior
     data_lecturas = hoja_lecturas.get_all_values()
     ultima_fila = data_lecturas[-1]
-    mes_anterior = ultima_fila[0]
+    mes_anterior_nombre = ultima_fila[0]
     lecturas_pasadas = [float(x) for x in ultima_fila[1:]]
+    
+    # Calcular consumos del mes pasado para referencia
+    consumos_pasados = [0.0] * len(config['departamentos'])
+    if len(data_lecturas) >= 2:
+        penultima_fila = data_lecturas[-2]
+        lecturas_anteriores_a_la_pasada = [float(x) for x in penultima_fila[1:]]
+        # Diferencias brutas del mes pasado
+        diffs_pasadas = [max(0.0, lp - la) for lp, la in zip(lecturas_pasadas, lecturas_anteriores_a_la_pasada)]
+        
+        # Aplicar lógica de serie al mes pasado para mostrar el dato real
+        cp_temp = []
+        for i in range(len(diffs_pasadas)):
+            d = diffs_pasadas[i]
+            if i == 0: cp = d
+            elif i == 1: cp = max(0.0, d - cp_temp[0])
+            elif i == 2: cp = max(0.0, d - (cp_temp[0] + cp_temp[1]))
+            elif i == 3: cp = d
+            elif i == 4: cp = max(0.0, d - sum(cp_temp[:4]))
+            else: cp = d
+            cp_temp.append(cp)
+        consumos_pasados = cp_temp
 
     # --- INTERFAZ DE ENTRADA ---
     st.subheader("📋 Datos del Mes Actual")
@@ -129,11 +150,12 @@ try:
 
     st.write("---")
     st.subheader("📏 Registro de Medidores")
-    st.info(f"💡 **Instrucciones:** Ingrese la **lectura actual** que marca el medidor. El sistema restará automáticamente la lectura anterior ({mes_anterior}) para calcular el consumo.")
+    st.info(f"💡 **Instrucciones:** Ingrese la **lectura actual**. Referencia anterior: {mes_anterior_nombre}")
 
     # Entrada de medidas en formato horizontal
     cols = st.columns(len(config['departamentos']))
     medidas_nuevas = []
+    consumos_calculados = []
     
     for i, depto in enumerate(config['departamentos']):
         with cols[i]:
@@ -145,14 +167,43 @@ try:
                 key=f"d_{i}"
             )
             medidas_nuevas.append(val)
-            # Mostrar consumo en tiempo real
-            consumo_v = val - lecturas_pasadas[i]
-            if consumo_v > 0:
-                st.markdown(f"<div style='color: #2e7d32; font-size: 0.8rem; font-weight: bold;'>▲ Consumo: {consumo_v:.1f} kW</div>", unsafe_allow_html=True)
-            elif consumo_v < 0:
-                st.markdown(f"<div style='color: #d32f2f; font-size: 0.8rem; font-weight: bold;'>▼ Error: {consumo_v:.1f} kW</div>", unsafe_allow_html=True)
+            
+            # Cálculo de consumo según lógica de instalación en serie
+            # diff es el consumo acumulado detectado por este medidor en el mes
+            diff = max(0.0, val - lecturas_pasadas[i])
+            
+            if i == 0: # Dpto 101: Continua igual (Consumo Directo)
+                consumo_v = diff
+            elif i == 1: # Dpto 102: Diferencia - Consumo 101
+                consumo_v = max(0.0, diff - consumos_calculados[0])
+            elif i == 2: # Dpto 103: Diferencia - (Consumo 101 + 102)
+                consumo_v = max(0.0, diff - (consumos_calculados[0] + consumos_calculados[1]))
+            elif i == 3: # Dpto 104: Continua igual
+                consumo_v = diff
+            elif i == 4: # Dpto 105: Diferencia - (101+102+103+104)
+                consumo_v = max(0.0, diff - (consumos_calculados[0] + consumos_calculados[1] + consumos_calculados[2] + consumos_calculados[3]))
             else:
-                st.markdown(f"<div style='color: #757575; font-size: 0.8rem;'>Sin cambio</div>", unsafe_allow_html=True)
+                consumo_v = diff
+            
+            consumos_calculados.append(consumo_v)
+
+            # Mostrar consumo en tiempo real e información de referencia
+            html_label = f"<div style='font-size: 0.8rem;'>"
+            
+            # Referencia de Lectura Anterior (siempre visible)
+            html_label += f"<span style='color: #616161;'>Lectura Ant: <b>{lecturas_pasadas[i]:.1f}</b></span>"
+            
+            # Consumo Actual Calculado (si se ha ingresado algo)
+            if val > 0:
+                if consumo_v > 0:
+                    html_label += f" | <span style='color: #2e7d32; font-weight: bold;'>▲ Consumo: {consumo_v:.1f} kW</span>"
+                elif val < lecturas_pasadas[i]:
+                    html_label += f" | <span style='color: #d32f2f; font-weight: bold;'>⚠️ Error Lectura</span>"
+                else:
+                    html_label += f" | <span style='color: #757575;'>Sin consumo neto</span>"
+            
+            html_label += "</div>"
+            st.markdown(html_label, unsafe_allow_html=True)
 
     # --- BOTONES DE ACCIÓN ---
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
@@ -165,7 +216,7 @@ try:
             elif monto_total <= 0:
                 st.warning("⚠️ El monto del recibo debe ser mayor a 0.")
             else:
-                st.warning(f"⚠️ Las lecturas actuales deben ser mayores a las de {mes_anterior} para calcular un consumo.")
+                st.warning(f"⚠️ Las lecturas actuales deben ser mayores a las de {mes_anterior_nombre} para calcular un consumo.")
 
     with col_btn2:
         if st.button("🧹 NUEVO CÁLCULO"):
@@ -174,12 +225,12 @@ try:
 
     # --- RESULTADOS ---
     if st.session_state.calculated:
-        # Calcular proporciones y pagos
-        consumos = [max(0, medidas_nuevas[i] - lecturas_pasadas[i]) for i in range(len(medidas_nuevas))]
+        # Usar los consumos ya calculados con la lógica de serie
+        consumos = consumos_calculados
         consumo_total_edificio = sum(consumos)
         
         if consumo_total_edificio <= 0:
-            st.error(f"❌ **No hay consumo detectable:** Las lecturas actuales son iguales o menores a las de {mes_anterior}. No se puede distribuir el monto de {config['edificio']['simbolo']} {monto_total} si no hay consumo de energía.")
+            st.error(f"❌ **No hay consumo detectable:** Las lecturas actuales son iguales o menores a las de {mes_anterior_nombre}. No se puede distribuir el monto de {config['edificio']['simbolo']} {monto_total} si no hay consumo de energía.")
             st.session_state.calculated = False
         else:
             pagos_calculados = []
@@ -199,6 +250,16 @@ try:
 
             st.write(f"---")
             st.subheader(f"🔍 Resumen de Cobranza - Período: {mes_actual}")
+            
+            # --- MÉTRICAS DE RESUMEN ---
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric("Consumo Total Edificio", f"{consumo_total_edificio:.1f} kW")
+            with m2:
+                st.metric("Monto a Distribuir", f"{config['edificio']['simbolo']} {monto_total:.2f}")
+            with m3:
+                st.metric("Promedio por Dpto", f"{config['edificio']['simbolo']} {(monto_total/len(config['departamentos'])):.2f}")
+            
             st.table(df_preview)
 
             # --- BOTÓN DE REGISTRO ---
