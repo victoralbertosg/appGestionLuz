@@ -112,6 +112,20 @@ st.write(f"📍 **Dirección:** {config['edificio']['direccion']}")
 if 'calculated' not in st.session_state:
     st.session_state.calculated = False
 
+def reset_form():
+    # 1. Resetear bandera de cálculo
+    st.session_state.calculated = False
+    
+    # 2. Resetear el monto del recibo
+    st.session_state.monto_recibo = 0.0
+    
+    # 3. Resetear todas las lecturas de departamentos
+    if 'departamentos' in config:
+        for i in range(len(config['departamentos'])):
+            key = f"d_{i}"
+            if key in st.session_state:
+                st.session_state[key] = 0.0
+
 try:
     doc = get_gsheet_connection()
     hoja_lecturas = doc.worksheet("Historico_Lecturas")
@@ -271,20 +285,7 @@ try:
                 st.warning(f"⚠️ Las lecturas actuales deben ser mayores a las de {mes_anterior_nombre} para calcular un consumo.")
 
     with col_btn2:
-        if st.button("🧹 NUEVO CÁLCULO"):
-            # 1. Resetear bandera de cálculo
-            st.session_state.calculated = False
-            
-            # 2. Resetear el monto del recibo
-            st.session_state.monto_recibo = 0.0
-            
-            # 3. Resetear todas las lecturas de departamentos
-            for i in range(len(config['departamentos'])):
-                key = f"d_{i}"
-                if key in st.session_state:
-                    st.session_state[key] = 0.0
-            
-            st.rerun()
+        st.button("🧹 NUEVO CÁLCULO", on_click=reset_form)
 
     # --- RESULTADOS ---
     if st.session_state.calculated:
