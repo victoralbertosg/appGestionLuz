@@ -4,6 +4,10 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import json
 from datetime import datetime
+import matplotlib.pyplot as plt
+from fpdf import FPDF
+import io
+import urllib.parse
 
 # --- 1. CARGA DE CONFIGURACIÓN Y ESTILOS ---
 def load_config():
@@ -207,6 +211,52 @@ try:
             html_label += "</div>"
             st.markdown(html_label, unsafe_allow_html=True)
 
+    # --- FUNCIONES DE REPORTES ---
+    def generate_pdf(df, mes, monto_total, config, consumos):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("helvetica", "B", 16)
+        
+        # Título
+        pdf.cell(190, 10, f"Reporte de Cobranza - {config['edificio']['nombre']}", ln=True, align="C")
+        pdf.set_font("helvetica", "", 12)
+        pdf.cell(190, 10, f"Mes: {mes} | Monto Total: {config['edificio']['simbolo']} {monto_total:.2f}", ln=True, align="C")
+        pdf.ln(10)
+        
+        # Tabla de datos
+        pdf.set_font("helvetica", "B", 10)
+        col_widths = [40, 35, 35, 35, 45]
+        headers = ["Departamento", "Lect. Ant", "Lect. Act", "Consumo", "Monto"]
+        
+        for i, header in enumerate(headers):
+            pdf.cell(col_widths[i], 10, header, border=1, align="C")
+        pdf.ln()
+        
+        pdf.set_font("helvetica", "", 10)
+        for index, row in df.iterrows():
+            pdf.cell(col_widths[0], 10, str(row["Departamento"]), border=1)
+            pdf.cell(col_widths[1], 10, str(row["Lect. Anterior"]), border=1)
+            pdf.cell(col_widths[2], 10, str(row["Lect. Actual"]), border=1)
+            pdf.cell(col_widths[3], 10, str(row["Consumo (kW)"]), border=1)
+            pdf.cell(col_widths[4], 10, str(row["Monto a Pagar"]), border=1)
+            pdf.ln()
+            
+        # Añadir Gráfico
+        plt.figure(figsize=(8, 5))
+        plt.bar(df["Departamento"], consumos, color='#2e7d32')
+        plt.title(f"Consumo por Departamento - {mes}")
+        plt.ylabel("kW")
+        
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format='png')
+        img_buf.seek(0)
+        
+        pdf.ln(10)
+        pdf.image(img_buf, x=10, w=180)
+        
+        # Asegurar que devuelva bytes (evitar error de bytearray en Streamlit)
+        return bytes(pdf.output())
+
     # --- BOTONES DE ACCIÓN ---
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     
@@ -264,9 +314,29 @@ try:
             
             st.table(df_preview)
 
-            # --- BOTÓN DE REGISTRO ---
-            with col_btn3:
-                if st.button("💾 REGISTRAR EN GOOGLE SHEETS"):
+            # --- GRÁFICO DE CONSUMO ---
+            st.write("---")
+            st.subheader("📊 Comparativa de Consumo (kW)")
+            df_chart = pd.DataFrame({
+                "Departamento": [d['nombre'] for d in config['departamentos']],
+                "Consumo (kW)": consumos
+            })
+            st.bar_chart(df_chart.set_index("Departamento"))
+
+            # --- BOTONES DE ACCIÓN FINAL ---
+            col_pdf, col_reg = st.columns([1, 1])
+            
+            with col_pdf:
+                pdf_bytes = generate_pdf(df_preview, mes_actual, monto_total, config, consumos)
+                st.download_button(
+                    label="📄 DESCARGAR PDF",
+                    data=pdf_bytes,
+                    file_name=f"Reporte_{mes_actual}.pdf",
+                    mime="application/pdf"
+                )
+
+            with col_reg:
+                if st.button("💾 REGISTRAR"):
                     # 1. Registrar en Historico_Lecturas
                     hoja_lecturas.append_row([mes_actual] + medidas_nuevas)
                     
