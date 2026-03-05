@@ -1,26 +1,26 @@
 {
     "edificio": {
-        "nombre": "Residencial Las Palmas",
-        "direccion": "Av. Principal 123",
-        "moneda": "USD",
-        "simbolo": "$"
+        "nombre": "Residencial Macchupichu",
+        "direccion": "Sr Luren Mz C27",
+        "moneda": "Soles",
+        "simbolo": "S/"
     },
     "departamentos": [
         {
             "id": 1,
-            "nombre": "Dpto 101"
+            "nombre": "Dpto 101 - Gino"
         },
         {
             "id": 2,
-            "nombre": "Dpto 102"
+            "nombre": "Dpto 102 - Maribel"
         },
         {
             "id": 3,
-            "nombre": "Dpto 103"
+            "nombre": "Dpto 103 - Massenet"
         },
         {
             "id": 4,
-            "nombre": "Dpto 104"
+            "nombre": "Dpto 104 - Guillermina"
         }
     ]
 }
