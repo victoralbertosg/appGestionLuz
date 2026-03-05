@@ -153,7 +153,7 @@ try:
     with c1:
         mes_actual = st.text_input("Mes de Cobro", value=datetime.now().strftime("%Y-%m"))
     with c2:
-        monto_total = st.number_input(f"Monto del Recibo General ({config['edificio']['simbolo']})", min_value=0.0)
+        monto_total = st.number_input(f"Monto del Recibo General ({config['edificio']['simbolo']})", min_value=0.0, key="monto_recibo")
 
     st.write("---")
     st.subheader("📏 Registro de Medidores")
@@ -272,7 +272,18 @@ try:
 
     with col_btn2:
         if st.button("🧹 NUEVO CÁLCULO"):
+            # 1. Resetear bandera de cálculo
             st.session_state.calculated = False
+            
+            # 2. Resetear el monto del recibo
+            st.session_state.monto_recibo = 0.0
+            
+            # 3. Resetear todas las lecturas de departamentos
+            for i in range(len(config['departamentos'])):
+                key = f"d_{i}"
+                if key in st.session_state:
+                    st.session_state[key] = 0.0
+            
             st.rerun()
 
     # --- RESULTADOS ---
